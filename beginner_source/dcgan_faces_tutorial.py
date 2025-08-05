@@ -257,7 +257,8 @@ dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size,
                                          shuffle=True, num_workers=workers)
 
 # Decide which device we want to run on
-device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
+
+device = torch.device(f'{torch.accelerator.current_accelerator()}:0' if (torch.accelerator.is_available() and ngpu > 0) else "cpu")
 
 # Plot some training images
 real_batch = next(iter(dataloader))
@@ -440,7 +441,7 @@ class Discriminator(nn.Module):
 netD = Discriminator(ngpu).to(device)
 
 # Handle multi-GPU if desired
-if (device.type == 'cuda') and (ngpu > 1):
+if (torch.accelerator.is_available()) and (ngpu > 1):
     netD = nn.DataParallel(netD, list(range(ngpu)))
     
 # Apply the ``weights_init`` function to randomly initialize all weights
