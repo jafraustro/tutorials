@@ -257,7 +257,8 @@ dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size,
                                          shuffle=True, num_workers=workers)
 
 # Decide which device we want to run on
-device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
+acc = torch.accelerator.current_accelerator()
+device = torch.device(f"{acc.type}:0" if (torch.accelerator.is_available() and ngpu > 0) else "cpu")
 
 # Plot some training images
 real_batch = next(iter(dataloader))
