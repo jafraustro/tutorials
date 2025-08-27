@@ -34,7 +34,7 @@ Authors: `Suraj Subramanian <https://github.com/subramen>`__
       * High-level `overview <ddp_series_theory.html>`__ of DDP
       * Familiarity with `DDP code <ddp_series_multigpu.html>`__
       * A machine with multiple GPUs (this tutorial uses an AWS p3.8xlarge instance)
-      * PyTorch `installed <https://pytorch.org/get-started/locally/>`__ with CUDA
+      * PyTorch `installed <https://pytorch.org/get-started/locally/>`__ with an accelerator device
 
 Follow along with the video below or on `youtube <https://www.youtube.com/watch/9kIvQOiwYzg>`__.
 
@@ -114,9 +114,12 @@ Process group initialization
     -     """
     -     os.environ["MASTER_ADDR"] = "localhost"
     -     os.environ["MASTER_PORT"] = "12355"
-    -     init_process_group(backend="nccl", rank=rank, world_size=world_size)
-    +     init_process_group(backend="nccl")
-         torch.cuda.set_device(int(os.environ["LOCAL_RANK"]))
+    -     backend = torch.distributed.get_default_backend_for_device(rank)
+    -     init_process_group(backend=backend, rank=rank, world_size=world_size)
+    +     rank = int(os.environ["LOCAL_RANK"])
+    +     backend = torch.distributed.get_default_backend_for_device(rank)
+    +     init_process_group(backend=backend)
+    +     torch.accelerator.set_device_index(rank)
 
 Use torchrun-provided environment variables
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -190,7 +193,7 @@ spawns the processes.
        import sys
        total_epochs = int(sys.argv[1])
        save_every = int(sys.argv[2])
-    -  world_size = torch.cuda.device_count()
+    -  world_size = torch.accelerator.device_count()
     -  mp.spawn(main, args=(world_size, total_epochs, save_every,), nprocs=world_size)
     +  main(save_every, total_epochs)
 
