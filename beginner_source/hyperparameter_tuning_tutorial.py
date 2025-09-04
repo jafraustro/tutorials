@@ -58,6 +58,7 @@ if not hasattr(sys.stdout, "encoding"):
     sys.stdout.encoding = "latin1"
     sys.stdout.fileno = lambda: 0
 # sphinx_gallery_end_ignore
+import ray
 from ray import tune
 from ray import train
 from ray.train import Checkpoint, get_checkpoint
@@ -234,10 +235,11 @@ def train_cifar(config, data_dir=None):
     net = Net(config["l1"], config["l2"])
 
     device = "cpu"
-    if torch.cuda.is_available():
-        device = "cuda:0"
-        if torch.cuda.device_count() > 1:
-            net = nn.DataParallel(net)
+    acc = torch.accelerator.current_accelerator()
+    if acc:
+        device = f"{acc}:0"  # Use only the first XPU card
+        #if acc.num_processes > 16:
+        #    net = nn.DataParallel(net)
     net.to(device)
 
     criterion = nn.CrossEntropyLoss()
@@ -426,7 +428,13 @@ def test_accuracy(net, device="cpu"):
 # The full main function looks like this:
 
 
-def main(num_samples=10, max_num_epochs=10, gpus_per_trial=2):
+def main(num_samples=10, max_num_epochs=10, gpus_per_trial=0):
+    # Check if Ray is already connected
+    if not ray.is_initialized():
+        # Initialize Ray with custom resources for XPU
+        # This assumes you have 1 XPU device. If you have more, you can change the quantity.
+        ray.init(num_cpus=2, resources={"XPU": 1})
+
     data_dir = os.path.abspath("./data")
     load_data(data_dir)
     config = {
@@ -442,9 +450,13 @@ def main(num_samples=10, max_num_epochs=10, gpus_per_trial=2):
         grace_period=1,
         reduction_factor=2,
     )
+    
+    # Request 1 XPU per trial
+    resources_per_trial = {"cpu": 2, "XPU": 1}
+    
     result = tune.run(
         partial(train_cifar, data_dir=data_dir),
-        resources_per_trial={"cpu": 2, "gpu": gpus_per_trial},
+        resources_per_trial=resources_per_trial,
         config=config,
         num_samples=num_samples,
         scheduler=scheduler,
@@ -457,10 +469,11 @@ def main(num_samples=10, max_num_epochs=10, gpus_per_trial=2):
 
     best_trained_model = Net(best_trial.config["l1"], best_trial.config["l2"])
     device = "cpu"
-    if torch.cuda.is_available():
-        device = "cuda:0"
-        if gpus_per_trial > 1:
-            best_trained_model = nn.DataParallel(best_trained_model)
+    acc = torch.accelerator.current_accelerator()
+    if acc:
+        device = f"{acc}:0"
+        #if gpus_per_trial > 16:
+        #    best_trained_model = nn.DataParallel(best_trained_model)
     best_trained_model.to(device)
 
     best_checkpoint = result.get_best_checkpoint(trial=best_trial, metric="accuracy", mode="max")
@@ -473,10 +486,12 @@ def main(num_samples=10, max_num_epochs=10, gpus_per_trial=2):
         test_acc = test_accuracy(best_trained_model, device)
         print("Best trial test set accuracy: {}".format(test_acc))
 
+    ray.shutdown()
+
 
 if __name__ == "__main__":
     # You can change the number of GPUs per trial here:
-    main(num_samples=10, max_num_epochs=10, gpus_per_trial=0)
+    main(num_samples=10, max_num_epochs=10)
 
 
 ######################################################################
