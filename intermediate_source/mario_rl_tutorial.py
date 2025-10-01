@@ -34,6 +34,9 @@ as your companion. The full code is available
 #      pip install gym-super-mario-bros==7.4.0
 #      pip install tensordict==0.3.0
 #      pip install torchrl==0.3.0
+#      pip install gymnasium
+#      pip install nes-py
+#      pip install gym-super-mario-bros
 #
 
 import torch
@@ -101,9 +104,9 @@ from torchrl.data import TensorDictReplayBuffer, LazyMemmapStorage
 
 # Initialize Super Mario environment (in v0.26 change render mode to 'human' to see results on the screen)
 if gym.__version__ < '0.26':
-    env = gym_super_mario_bros.make("SuperMarioBros-1-1-v0", new_step_api=True)
+    env = gym_super_mario_bros.make("SuperMarioBros-1-1-v3", new_step_api=True)
 else:
-    env = gym_super_mario_bros.make("SuperMarioBros-1-1-v0", render_mode='rgb', apply_api_compatibility=True)
+    env = gym_super_mario_bros.make("SuperMarioBros-1-1-v3", render_mode='rgb', apply_api_compatibility=True)
 
 # Limit the action-space to
 #   0. walk right
@@ -292,7 +295,7 @@ class Mario:
         self.action_dim = action_dim
         self.save_dir = save_dir
 
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = "xpu" if torch.xpu.is_available() else "cpu"
 
         # Mario's DNN to predict the most optimal action - we implement this in the Learn section
         self.net = MarioNet(self.state_dim, self.action_dim).float()
@@ -735,8 +738,8 @@ class MetricLogger:
 # In this example we run the training loop for 40 episodes, but for Mario to truly learn the ways of
 # his world, we suggest running the loop for at least 40,000 episodes!
 #
-use_cuda = torch.cuda.is_available()
-print(f"Using CUDA: {use_cuda}")
+use_accel = torch.xpu.is_available()
+print(f"Using xpu: {use_accel}")
 print()
 
 save_dir = Path("checkpoints") / datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
