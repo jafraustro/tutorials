@@ -15,7 +15,9 @@ to detect performance bottlenecks of the model.
 Introduction
 ------------
 PyTorch 1.8 includes an updated profiler API capable of
-recording the CPU side operations as well as the CUDA kernel launches on the GPU side.
+recording CPU-side operations as well as device-side kernel launches (for example CUDA or XPU),
+when supported by the platform and underlying tracing integrations.
+
 The profiler can visualize this information
 in TensorBoard Plugin and provide analysis of the performance bottlenecks.
 
@@ -76,9 +78,10 @@ train_loader = torch.utils.data.DataLoader(train_set, batch_size=32, shuffle=Tru
 # Next, create Resnet model, loss function, and optimizer objects.
 # To run on GPU, move model and loss to GPU device.
 
-device = torch.device("cuda:0")
-model = torchvision.models.resnet18(weights='IMAGENET1K_V1').cuda(device)
-criterion = torch.nn.CrossEntropyLoss().cuda(device)
+acc = torch.accelerator.current_accelerator()
+device = torch.device(f'{acc}:0')
+model = torchvision.models.resnet18(weights='IMAGENET1K_V1').to(device)
+criterion = torch.nn.CrossEntropyLoss().to(device)
 optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 model.train()
 
@@ -346,7 +349,7 @@ prof.stop()
 # For example, "GPU0" means the following table only shows each operator's memory usage on GPU 0, not including CPU or other GPUs.
 #
 # The memory curve shows the trends of memory consumption. The "Allocated" curve shows the total memory that is actually
-# in use, e.g., tensors. In PyTorch, caching mechanism is employed in CUDA allocator and some other allocators. The
+# in use, e.g., tensors. In PyTorch, caching mechanism is employed in the device allocator and some other allocators. The
 # "Reserved" curve shows the total memory that is reserved by the allocator. You can left click and drag on the graph
 # to select events in the desired range:
 #
